@@ -1,0 +1,25 @@
+{
+  "name": "tridactyla",
+  "version": "1.0.0",
+  "description": "crawl",
+  "main": "puppet.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezwal/tridactyla.git"
+  },
+  "keywords": [
+    "crawler"
+  ],
+  "author": "Ezwal",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ezwal/tridactyla/issues"
+  },
+  "homepage": "https://github.com/Ezwal/tridactyla#readme",
+  "dependencies": {
+    "axios": "^0.19.2"
+  }
+}
