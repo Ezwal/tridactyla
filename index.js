@@ -15,6 +15,7 @@ if (process.argv.length < 3) {
     process.exit(1);
 }
 
+const MAX_ATTEMPT = 2;
 const fourk = '4k';
 const diff = 'diff'
 const collectionId = process.argv[2];
@@ -26,13 +27,16 @@ const fetchJsonPage = async url => (await axios.get(url)).data;
 
 const SANITIZE_REGEX = /[\\\/?"!<>:|?*]/gi
 const sanitizeForFs = s => s.replace(SANITIZE_REGEX, ''); // for both windows and linux...
-const getLargeArtwork = s => s
-      .replace('/small_square/', is4k ? '/4k/' : '/large/')
-      .replace(/\d{14}\//, '');
+const getLargestArtwork = (s, largest) => s
+      .replace('/small_square/', largest ? '/4k/' : '/large/')
+      .replace(/\d{14}\//, ''); // ID that we don't need
+const getArtwork = s => getLargestArtwork(s, false)
+
 const pickArtworkData = pageArtwork => pageArtwork.data.map(singleArtwork => ({
     title: `${sanitizeForFs(singleArtwork.title)} - ${sanitizeForFs(singleArtwork.user.username)}`,
-    link: getLargeArtwork(singleArtwork.cover.small_square_url),
-    assets_count: singleArtwork.assets_count
+    link: getLargestArtwork(singleArtwork.cover.small_square_url, is4k),
+    backup_link: getArtwork(singleArtwork.cover.small_square_url),
+    assets_count: singleArtwork.assets_count,
 })).map(artwork => ({
     ...artwork,
     skip_dl: diffMode && isDownloaded(artwork.title)
@@ -62,17 +66,17 @@ const downloadArtwork = async (title, link) => {
 
 const downloadAll = async artworksInfo => {
     const failures = []
-    artworksInfo.reduce(async (prevDownload, {title, link, skip_dl}) => {
+    artworksInfo.reduce(async (prevDownload, {title, link, skip_dl, backup_link}) => {
         await prevDownload;
         if (skip_dl) {
             console.log(`[dl] ${title} skipped : already downloaded`);
             return Promise.resolve();
         }
 
-        let tryCount = 3;
+        let tryCount = MAX_ATTEMPT;
         while (tryCount > 0) {
             try {
-                await downloadArtwork(title, link);
+                await downloadArtwork(title, tryCount === MAX_ATTEMPT ? link : backup_link);
                 console.log(`[dl] ${title} from ${link}`);
                 break;
             } catch (err) {
