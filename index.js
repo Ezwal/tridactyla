@@ -32,8 +32,11 @@ const getLargeArtwork = s => s
 const pickArtworkData = pageArtwork => pageArtwork.data.map(singleArtwork => ({
     title: `${sanitizeForFs(singleArtwork.title)} - ${sanitizeForFs(singleArtwork.user.username)}`,
     link: getLargeArtwork(singleArtwork.cover.small_square_url),
-    assets_count: singleArtwork.assets_count,
-})).filter(artwork => !diffMode || isDownloaded(artwork.title));
+    assets_count: singleArtwork.assets_count
+})).map(artwork => ({
+    ...artwork,
+    skip_dl: diffMode && isDownloaded(artwork.title)
+}));
 
 const downloadDir = './artworks'
 const drainWriter = writable => {
@@ -58,14 +61,18 @@ const downloadArtwork = async (title, link) => {
 }
 
 const downloadAll = async artworksInfo => {
-    artworksInfo.reduce(async (prevDownload, {title, link}) => {
+    artworksInfo.reduce(async (prevDownload, {title, link, skip_dl}) => {
         await prevDownload;
-        console.log(`[dl] ${title} from ${link}`);
+        if (skip_dl) {
+            console.log('[dl] ${title} skipped : already downloaded');
+            return Promise.resolve();
+        }
 
         let tryCount = 3;
         while (tryCount > 0) {
             try {
                 await downloadArtwork(title, link);
+                console.log(`[dl] ${title} from ${link}`);
                 break;
             } catch (err) {
                 console.error(`[dl] ${title} download failure, tryCount: ${tryCount}`)
@@ -81,9 +88,9 @@ const isDownloaded = artworkTitle => downloadedArtworks
       .find(dlTitle => dlTitle === artworkTitle)
 
 const fsPreOp = async () => {
-        await fs.promises.mkdir(downloadDir, { recursive: true });
-        downloadedArtworks = (await fs.promises.readdir(downloadDir))
-            .map(title => exceptFileType(title))
+    await fs.promises.mkdir(downloadDir, { recursive: true });
+    downloadedArtworks = (await fs.promises.readdir(downloadDir))
+        .map(title => exceptFileType(title))
 }
 const getArtworks = async url => {
     const getCollectionPage = getCollectionUrl(url);
@@ -91,10 +98,11 @@ const getArtworks = async url => {
 
     try {
         const firstPage = await fetchJsonPage(getCollectionPage(1));
+        const totalCount = firstPage.total_count
         let allArtworks = pickArtworkData(firstPage);
 
         let pageCount = 2;
-        while (allArtworks.length !== firstPage.total_count) {
+        while (allArtworks.length !== totalCount) {
             const pageArtwork = await fetchJsonPage(getCollectionPage(pageCount));
             const filteredArtworkInfo = pickArtworkData(pageArtwork);
 
@@ -110,6 +118,10 @@ const getArtworks = async url => {
 }
 
 (async () =>{
-    await fsPreOp()
-    await getArtworks(collectionId);
+    try {
+        await fsPreOp()
+        await getArtworks(collectionId);
+    } catch (error) {
+        console.error(error)
+    }
 })()
