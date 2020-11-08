@@ -61,10 +61,11 @@ const downloadArtwork = async (title, link) => {
 }
 
 const downloadAll = async artworksInfo => {
+    const failures = []
     artworksInfo.reduce(async (prevDownload, {title, link, skip_dl}) => {
         await prevDownload;
         if (skip_dl) {
-            console.log('[dl] ${title} skipped : already downloaded');
+            console.log(`[dl] ${title} skipped : already downloaded`);
             return Promise.resolve();
         }
 
@@ -75,8 +76,11 @@ const downloadAll = async artworksInfo => {
                 console.log(`[dl] ${title} from ${link}`);
                 break;
             } catch (err) {
-                console.error(`[dl] ${title} download failure, tryCount: ${tryCount}`)
                 tryCount -= 1;
+                if (tryCount === 0) {
+                    console.log(`[dl] ${title} link: ${link} download failure`)
+                    failures.push({title, link})
+                }
             }
         }
     }, Promise.resolve());
